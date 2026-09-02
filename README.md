@@ -43,6 +43,54 @@ El prefijo del canal importa: `#` público, `&` privado, `@` grupo. La
 precedencia es opciones de la línea de comandos > entorno > `local.env` >
 valores por defecto.
 
+## Conseguir el token de Slack
+
+Hace falta un **token de sesión**, que son dos piezas: el token en sí y una
+cookie. Los dos se sacan del navegador, con la sesión de Slack ya iniciada.
+
+1. Abre <https://my.slack.com/customize> y comprueba arriba a la derecha que es
+   el workspace que quieres.
+
+2. Abre la consola del navegador — `Cmd`+`Opt`+`J` en Chrome, `Cmd`+`Opt`+`K`
+   en Firefox — y ejecuta:
+
+   ```js
+   window.prompt("Session token:", TS.boot_data.api_token)
+   ```
+
+   Sale un cuadro con el token, que empieza por `xoxc-`. Cópialo.
+
+3. En la misma consola, ve a **Application** (Chrome) o **Storage** (Firefox),
+   despliega **Cookies**, entra en el dominio de Slack y copia el valor de la
+   cookie llamada **`d`**. Empieza por `xoxd-`.
+
+4. Dáselos a `install.sh` cuando los pida, o pásalos por entorno:
+
+   ```bash
+   SLACK_TOKEN=xoxc-... SLACK_COOKIE='d=xoxd-...' ./install.sh
+   ```
+
+En algunos workspaces hace falta mandar además la cookie `d-s`, separándolas con
+`;`:
+
+```bash
+SLACK_COOKIE='d=xoxd-...; d-s=1699...'
+```
+
+### Lo que conviene saber
+
+- **La cookie caduca al iniciar o cerrar sesión en el navegador.** Cuando
+  wee-slack deje de conectar, casi siempre es eso: repite los pasos y relanza
+  `install.sh`, o cambia las opciones a mano y `/python reload slack`.
+- **Un token de sesión no se puede revocar**, así que trátalo como una
+  contraseña. Se guarda en texto plano en `~/.config/weechat/slack.conf`;
+  conviene cifrarlo con el almacén de WeeChat — ver
+  [MANUAL.md §3](MANUAL.md#cifrar-el-token).
+- **No es una vía oficial de Slack** y puede dejar de funcionar en cualquier
+  momento. Un token OAuth `xoxp-` también sirve si lo consigues por otro medio
+  (wee-slack detecta el tipo), pero la v3 ya no trae el flujo para obtenerlo, y
+  con OAuth los hilos solo se marcan como leídos en local.
+
 ## Arrancar
 
 ```bash
