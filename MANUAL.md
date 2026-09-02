@@ -134,11 +134,40 @@ Qué hace, en orden:
 4. Descarga `go.py` y `url_hint.py`.
 5. Deja el lanzador en `~/.local/bin/weeslack`.
 6. Aplica `weechat/settings.conf`, el trigger del canal por defecto y registra
-   el workspace con el token.
+   el workspace con el token. Los nombres salen de `weechat/local.env` (ver
+   más abajo).
 
 Para aplicar la configuración habla con WeeChat por su FIFO si lo detecta
 corriendo (así no pierdes la sesión); si no, lo arranca en efímero, aplica,
 guarda y sale.
+
+### Ajustes de cada máquina: `weechat/local.env`
+
+El nombre del workspace y el canal por defecto no están escritos en el
+repositorio: son de cada instalación. Copia el ejemplo y ajústalo:
+
+```bash
+cp weechat/local.env.example weechat/local.env
+```
+
+```bash
+: "${SLACK_WORKSPACE:=miequipo}"
+: "${SLACK_DEFAULT_CHANNEL:=&equipo-privado}"
+```
+
+`local.env` está en el `.gitignore`. La forma `: "${VAR:=valor}"` significa
+"solo si no viene ya del entorno", así que la precedencia queda:
+
+```
+opciones de la línea de comandos  >  variables de entorno  >  local.env  >  valores por defecto del repo
+```
+
+El prefijo del canal importa: `#` público, `&` privado, `@` grupo, nada para un
+DM. Se puede ver el nombre exacto de un buffer con `/buffer list`.
+
+El token también cabe ahí para instalaciones desatendidas, pero quedaría en
+texto plano dentro del directorio del repositorio; es preferible que lo pida
+`install.sh` y luego cifrarlo con `/secure` ([§3](#cifrar-el-token)).
 
 ### Arrancar
 
@@ -173,7 +202,7 @@ el directorio del proyecto, no en el directorio actual.
 weeslack
 ```
 
-El workspace `miequipo` tiene `autoconnect on`, así que conecta solo. A mano:
+El workspace tiene `autoconnect on`, así que conecta solo. A mano:
 
 ```
 /slack connect miequipo
@@ -352,8 +381,9 @@ ajusta al nombre más largo), con un tope de 25 puesto por la configuración.
 
 ### Canal por defecto al arrancar
 
-Al arrancar, WeeChat salta solo a **`&equipo-privado`**. Lo hace un trigger
-que reacciona a la apertura de ese buffer:
+Al arrancar, WeeChat salta solo al canal configurado como
+`SLACK_DEFAULT_CHANNEL` (ver [§2](#ajustes-de-cada-máquina-weechatlocalenv)). Lo
+hace un trigger que reacciona a la apertura de ese buffer:
 
 ```
 /trigger listfull slack_default_buffer

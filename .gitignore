@@ -38,3 +38,6 @@ logs/
 
 # ...pero la configuración versionada de este repo sí se sube (no lleva secretos)
 !weechat/*.conf
+
+# Ajustes propios de cada máquina (workspace, canal, y opcionalmente el token)
+weechat/local.env

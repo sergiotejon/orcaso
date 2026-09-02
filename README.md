@@ -27,9 +27,21 @@ SLACK_COOKIE='d=xoxd-...' \
 ./install.sh
 ```
 
-Los valores por defecto (`miequipo`, `&equipo-privado`) están para no tener que
-escribirlos cada vez; cámbialos con esas variables o con `--workspace` y
-`--default-channel`.
+O de forma permanente, en un fichero que git ignora:
+
+```bash
+cp weechat/local.env.example weechat/local.env
+$EDITOR weechat/local.env
+```
+
+```bash
+: "${SLACK_WORKSPACE:=miequipo}"
+: "${SLACK_DEFAULT_CHANNEL:=&equipo-privado}"
+```
+
+El prefijo del canal importa: `#` público, `&` privado, `@` grupo. La
+precedencia es opciones de la línea de comandos > entorno > `local.env` >
+valores por defecto.
 
 ## Arrancar
 
@@ -81,6 +93,7 @@ nix/flake.nix / nix/flake.lock  el WeeChat con websocket-client en su Python
 install.sh                      instalación y configuración, idempotente
 weechat/settings.conf           la configuración de WeeChat, versionada
 weechat/default-channel.conf    el trigger del canal por defecto
+weechat/local.env.example       plantilla de los ajustes de cada máquina
 bin/weeslack                    lanzador
 bin/slack-img                   imagen o GIF -> arte ANSI dentro de un buffer
 bin/slack-open                  URL -> pestaña del navegador de Orca

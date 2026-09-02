@@ -18,6 +18,16 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Ajustes de esta máquina, fuera del control de versiones. Usa la forma
+# ': "${VAR:=valor}"', así que lo que ya venga del entorno manda sobre el
+# fichero, y las opciones de la línea de comandos mandan sobre ambos.
+# Ver weechat/local.env.example.
+if [ -f "$REPO_DIR/weechat/local.env" ]; then
+  # shellcheck source=/dev/null
+  . "$REPO_DIR/weechat/local.env"
+fi
+
 WORKSPACE="${SLACK_WORKSPACE:-miequipo}"
 # Canal al que saltar al arrancar. Prefijo: '#' público, '&' privado, '@' grupo.
 DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-&equipo-privado}"
