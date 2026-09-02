@@ -8,6 +8,7 @@
 #   ./install.sh --update         actualiza wee-slack y los scripts, y recarga
 #   ./install.sh --no-config      instala sin tocar la configuración de WeeChat
 #   ./install.sh --no-token       no pregunta por el token de Slack
+#   ./install.sh --no-project     no monta las pestañas del proyecto en Orca
 #   ./install.sh --default-channel '#otro'   canal al que saltar al arrancar
 #   ./install.sh --no-default-channel
 #   ./install.sh --workspace otro
@@ -33,6 +34,7 @@ WORKSPACE="${SLACK_WORKSPACE:-miequipo}"
 DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-&equipo-privado}"
 DO_CONFIG=1
 DO_TOKEN=1
+DO_PROJECT=1
 UPDATE_ONLY=0
 
 while [ $# -gt 0 ]; do
@@ -40,10 +42,11 @@ while [ $# -gt 0 ]; do
     --update)             UPDATE_ONLY=1 ;;
     --no-config)          DO_CONFIG=0 ;;
     --no-token)           DO_TOKEN=0 ;;
+    --no-project)         DO_PROJECT=0 ;;
     --workspace)          WORKSPACE="$2"; shift ;;
     --default-channel)    DEFAULT_CHANNEL="$2"; shift ;;
     --no-default-channel) DEFAULT_CHANNEL="" ;;
-    -h|--help)            sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)            sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)                    echo "Opción desconocida: $1" >&2; exit 1 ;;
   esac
   shift
@@ -240,6 +243,11 @@ if [ "$DO_CONFIG" -eq 1 ]; then
   configure
   [ "$DO_TOKEN" -eq 1 ] && configure_token
   reload_scripts
+fi
+
+# Pestañas del proyecto en Orca: el CLI de IA y Slack.
+if [ "$DO_PROJECT" -eq 1 ] && command -v orca >/dev/null 2>&1; then
+  "$REPO_DIR/bin/orcaso-project" || warn "No pude montar las pestañas en Orca"
 fi
 
 cat <<EOF

@@ -5,13 +5,15 @@
     "chafa@latest",
     "curl@latest",
     "git@latest",
-    "perl@latest"
+    "perl@latest",
+    "jq@latest"
   ],
   "shell": {
     "scripts": {
       "start": "weechat",
       "setup": "./install.sh",
-      "update": "./install.sh --update"
+      "update": "./install.sh --update",
+      "project": "./bin/orcaso-project"
     }
   }
 }

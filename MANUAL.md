@@ -1,14 +1,31 @@
-# Slack en la terminal — WeeChat + wee-slack
+# orcaso — Slack (y todo lo demás) dentro de Orca
 
-Manual de uso de esta instalación. Todo lo de aquí está verificado contra el
-código de **wee-slack v3.0.0** instalado en la máquina, no contra el README
-oficial (que en varios puntos sigue documentando la v2 — ver
-[§14](#14-diferencias-con-el-readme-oficial)).
+**El objetivo de este repositorio es no tener que salir de Orca para nada.**
+
+[Orca](https://onorca.dev) ya reúne en pestañas los terminales, los CLIs de IA y
+un navegador. Lo que faltaba era Slack. Aquí se resuelve poniéndolo en otra
+pestaña — **WeeChat + wee-slack** — y automatizando el montaje del proyecto:
+`install.sh` deja creadas las pestañas del CLI de IA y de Slack
+([§2 bis](#2-bis-el-proyecto-en-orca)).
+
+De ahí salen varias decisiones de diseño que si no parecerían caprichos:
+
+- Los **GIFs y las imágenes** se abren en una pestaña del navegador de Orca, no
+  en Preview ni en el navegador del sistema ([§7 bis](#7-bis-ver-imágenes-y-gifs)).
+- Las **dependencias** van fijadas con devbox/Nix, para que el entorno se
+  reproduzca en cualquier máquina donde tengas Orca ([§1](#1-qué-hay-instalado)).
+- La **configuración de WeeChat** está versionada y se aplica sola, para que una
+  máquina nueva quede igual sin tocar nada a mano ([§2](#2-instalar-y-actualizar-con-installsh)).
+
+Todo lo de aquí está verificado contra el código de **wee-slack v3.0.0**
+instalado en la máquina, no contra el README oficial (que en varios puntos sigue
+documentando la v2 — ver [§14](#14-diferencias-con-el-readme-oficial)).
 
 **Índice**
 
 1. [Qué hay instalado](#1-qué-hay-instalado)
 2. [Instalar y actualizar con `install.sh`](#2-instalar-y-actualizar-con-installsh)
+2 bis. [El proyecto en Orca](#2-bis-el-proyecto-en-orca)
 3. [Arrancar y conectar](#3-arrancar-y-conectar)
 4. [Moverse entre canales](#4-moverse-entre-canales)
 5. [Escribir](#5-escribir)
@@ -34,7 +51,8 @@ oficial (que en varios puntos sigue documentando la v2 — ver
 | wee-slack | 3.0.0 (`master`) | compilado del fuente por `install.sh` |
 | `go.py` (saltar a buffer por nombre) | 3.1.1 | descargado por `install.sh` |
 | `url_hint.py` (numera las URLs) | 0.8 | descargado por `install.sh` |
-| `bin/slack-img`, `bin/slack-open`, `bin/weeslack` | — | este repositorio |
+| `jq` (leer la salida JSON de la CLI de Orca) | fijada | devbox |
+| `bin/slack-img`, `bin/slack-open`, `bin/weeslack`, `bin/orcaso-project` | — | este repositorio |
 
 Las **dependencias** están fijadas por Nix (`devbox.lock` y `nix/flake.lock`) y
 viven en `/nix/store`: no se instala nada en el sistema salvo el propio devbox.
@@ -65,6 +83,7 @@ weechat/default-channel.conf    el trigger del canal por defecto
 bin/weeslack                    lanzador: arranca el WeeChat del entorno devbox
 bin/slack-img                   descarga una imagen y la renderiza como arte ANSI
 bin/slack-open                  abre una URL en una pestaña de Orca (o en el visor del sistema)
+bin/orcaso-project              monta las pestañas del proyecto en Orca
 MANUAL.md                       este documento
 ```
 
@@ -195,6 +214,49 @@ Ojo con `devbox run`: resuelve primero los **scripts** de `devbox.json` y solo
 después los binarios, así que el script que arranca WeeChat se llama `start` y
 no `weechat`, para no secuestrar al binario. Y `devbox run` ejecuta siempre en
 el directorio del proyecto, no en el directorio actual.
+
+## 2 bis. El proyecto en Orca
+
+Al terminar, `install.sh` monta las pestañas del proyecto. También se puede
+lanzar suelto:
+
+```bash
+./bin/orcaso-project                              # crea las pestañas que falten
+./bin/orcaso-project --focus                      # y deja el foco en la última
+./bin/orcaso-project --web https://ejemplo.com    # abre además el navegador
+./bin/orcaso-project --cli codex                  # fuerza otro CLI de IA
+```
+
+Crea una pestaña para el **CLI de IA** y otra para **Slack**. Por dentro es la
+CLI de Orca:
+
+```bash
+orca terminal create --worktree path:<repo> --title Slack --command <repo>/bin/weeslack
+orca tab create --worktree path:<repo> --url <url>
+```
+
+### Cómo elige el CLI de IA
+
+En este orden, y se queda con el primero que resuelva:
+
+1. `--cli`, o la variable `ORCASO_AI_CLI` (que puede ir en
+   `weechat/local.env`).
+2. El agente que Orca ya tenga en marcha: `orca terminal list --json` expone un
+   campo `agentIdentity` por terminal.
+3. La cuenta gestionada que aparezca en `orca account list` (Claude o Codex).
+4. El primero instalado de `claude`, `codex`, `opencode`, `cursor-agent`,
+   `aider`.
+
+### Detalles
+
+- Es **idempotente**: si ya existe una pestaña con ese título en este worktree,
+  no crea otra.
+- Si ya hay un WeeChat corriendo **no abre la pestaña de Slack**, porque dos
+  instancias se pelean por el mismo directorio de configuración (`unable to
+  create/append to log file`).
+- Para saltárselo en la instalación: `./install.sh --no-project`.
+- El worktree se pasa explícito (`path:<repo>`) porque `current` se resuelve por
+  el directorio de trabajo. Se puede cambiar con `ORCA_WORKTREE`.
 
 ## 3. Arrancar y conectar
 
