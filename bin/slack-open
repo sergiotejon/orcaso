@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Abre una URL en una pestaña del navegador de Orca; si Orca no está disponible,
+# cae al visor por defecto del sistema (open).
+#
+#   slack-open <url>
+#
+# El selector de worktree se puede fijar con ORCA_WORKTREE (por defecto, el
+# worktree de este repositorio), porque WeeChat no se ejecuta necesariamente
+# desde ese directorio y "current" se resuelve por cwd.
+
+set -uo pipefail
+
+URL="${1:-}"
+[ -n "$URL" ] || { echo "uso: slack-open <url>"; exit 1; }
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKTREE="${ORCA_WORKTREE:-path:$REPO_DIR}"
+
+if command -v orca >/dev/null 2>&1; then
+  if orca tab create --worktree "$WORKTREE" --url "$URL" --json >/dev/null 2>&1; then
+    echo "Abierto en una pestaña de Orca: $URL"
+    exit 0
+  fi
+  echo "Orca no pudo abrir la pestaña; usando el visor del sistema."
+fi
+
+exec open "$URL"

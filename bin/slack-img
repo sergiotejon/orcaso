@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Renderiza una imagen (o el primer fotograma de un GIF) como arte ANSI, para
+# mostrarla dentro de un buffer de WeeChat con:
+#
+#   /exec -nf -noln -color ansi .../bin/slack-img <url|fichero> [ancho] [alto]
+#
+# Los ficheros alojados en Slack requieren autenticación: se cogen el token y la
+# cookie de slack.conf.
+
+set -uo pipefail
+
+SRC="${1:-}"
+COLS="${2:-70}"
+ROWS="${3:-30}"
+WEE_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/weechat"
+
+[ -n "$SRC" ] || { echo "uso: slack-img <url|fichero> [ancho] [alto]"; exit 1; }
+
+# chafa emite secuencias de control del cursor aunque no anime; WeeChat no las
+# entiende, así que se filtran y solo quedan los colores SGR.
+render() {
+  chafa --format symbols --colors 256 --animate off --size "${COLS}x${ROWS}" "$1" \
+    | LC_ALL=C sed $'s/\033\[\?[0-9]*[lh]//g'
+}
+
+# --- fichero local
+if [ -f "$SRC" ]; then
+  render "$SRC"; exit
+fi
+
+# --- URL
+case "$SRC" in
+  http://*|https://*) ;;
+  *) echo "No es un fichero ni una URL: $SRC"; exit 1 ;;
+esac
+
+tmp="$(mktemp -t slack-img)"
+trap 'rm -f "$tmp"' EXIT
+
+curl_args=(-fsSL --max-time 20 --max-filesize 25000000 -o "$tmp")
+
+# Las URLs de Slack (files.slack.com, *.slack-edge.com privados) necesitan el
+# token de sesión y la cookie; sin ellos devuelven una página de login.
+case "$SRC" in
+  *slack.com/*|*slack-edge.com/*)
+    token="$(sed -n 's/^[a-z0-9_-]*\.api_token = "\(.*\)"$/\1/p' "$WEE_CONFIG/slack.conf" | head -1)"
+    cookie="$(sed -n 's/^[a-z0-9_-]*\.api_cookies = "\(.*\)"$/\1/p' "$WEE_CONFIG/slack.conf" | head -1)"
+    [ -n "$token" ]  && curl_args+=(-H "Authorization: Bearer $token")
+    [ -n "$cookie" ] && curl_args+=(-H "Cookie: $cookie")
+    ;;
+esac
+
+if ! curl "${curl_args[@]}" "$SRC"; then
+  echo "No se pudo descargar: $SRC"
+  exit 1
+fi
+
+# Un HTML de vuelta = token caducado o enlace que no es una imagen directa.
+case "$(file -b --mime-type "$tmp")" in
+  image/*|video/*) ;;
+  text/html) echo "Devolvió HTML, no una imagen (¿token caducado o enlace no directo?)"; exit 1 ;;
+  *) echo "Tipo no soportado: $(file -b --mime-type "$tmp")"; exit 1 ;;
+esac
+
+render "$tmp"
