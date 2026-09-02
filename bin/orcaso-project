@@ -3,9 +3,11 @@
 # Deja montado el proyecto en Orca con las pestañas básicas: el CLI de IA que
 # uses y Slack. La idea es no tener que salir de Orca para nada.
 #
-#   orcaso-project [--focus] [--web <url>] [--cli <comando>]
+#   orcaso-project [--focus] [--slack terminal|web|none] [--web <url>] [--cli <cmd>]
 #
 #   --focus        deja el foco en la última pestaña creada
+#   --slack <modo> terminal (weeslack, por defecto), web (Slack en el navegador
+#                  de Orca) o none
 #   --web <url>    abre además una pestaña del navegador de Orca
 #   --cli <cmd>    fuerza el CLI de IA (si no, se detecta)
 #
@@ -15,17 +17,30 @@
 set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
+
+# Mismos ajustes de máquina que usa install.sh. La forma ': "${VAR:=valor}"'
+# hace que lo que venga del entorno o de la línea de comandos siga mandando.
+if [ -f "$REPO_DIR/weechat/local.env" ]; then
+  # shellcheck source=/dev/null
+  . "$REPO_DIR/weechat/local.env"
+fi
+
 WORKTREE="${ORCA_WORKTREE:-path:$REPO_DIR}"
 FOCUS=""
 WEB_URL="${ORCASO_WEB_URL:-}"
 AI_CLI="${ORCASO_AI_CLI:-}"
+SLACK_MODE="${ORCASO_SLACK:-terminal}"
+# Conviene poner la URL del workspace (https://<equipo>.slack.com) en
+# weechat/local.env: la genérica redirige a la pantalla de elegir espacio.
+SLACK_URL="${ORCASO_SLACK_URL:-https://app.slack.com/client}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --focus) FOCUS="--focus" ;;
     --web)   WEB_URL="$2"; shift ;;
+    --slack) SLACK_MODE="$2"; shift ;;
     --cli)   AI_CLI="$2"; shift ;;
-    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Opción desconocida: $1" >&2; exit 1 ;;
   esac
   shift
@@ -107,6 +122,23 @@ create_terminal() {
   fi
 }
 
+open_web_tab() {
+  local url="$1" label="$2" host existing=""
+  # Se compara por host y no por URL completa: Slack redirige al abrir, así que
+  # la URL de la pestaña ya no es la que se pidió.
+  host="${url#*://}"; host="${host%%/*}"
+  if command -v jq >/dev/null 2>&1; then
+    existing="$(orca tab list --json 2>/dev/null \
+      | jq -r --arg h "$host" '.result.tabs[]? | select(.url | contains($h)) | .browserPageId' | head -1)"
+  fi
+  if [ -n "$existing" ]; then
+    log "La pestaña de $label ya está abierta"
+    return
+  fi
+  orca tab create --worktree "$WORKTREE" --url "$url" --json >/dev/null \
+    && log "Pestaña del navegador → $label"
+}
+
 # ---------------------------------------------------------------------- main
 orca repo add --path "$REPO_DIR" --json >/dev/null 2>&1 || true
 
@@ -119,17 +151,23 @@ else
   warn "No encontré ningún CLI de IA instalado; me salto esa pestaña"
 fi
 
-# Dos WeeChat a la vez se pelean por el mismo directorio de configuración, así
-# que si ya hay uno corriendo no se abre otra pestaña.
-if pgrep -x weechat >/dev/null 2>&1; then
-  warn "Ya hay un WeeChat corriendo; no creo la pestaña de Slack"
-else
-  create_terminal "Slack" "$REPO_DIR/bin/weeslack"
-fi
+case "$SLACK_MODE" in
+  terminal)
+    # Dos WeeChat a la vez se pelean por el mismo directorio de configuración,
+    # así que si ya hay uno corriendo no se abre otra pestaña.
+    if pgrep -x weechat >/dev/null 2>&1; then
+      warn "Ya hay un WeeChat corriendo; no creo la pestaña de Slack"
+    else
+      create_terminal "Slack" "$REPO_DIR/bin/weeslack"
+    fi
+    ;;
+  web)
+    open_web_tab "$SLACK_URL" "Slack"
+    ;;
+  none) ;;
+  *) warn "Modo de Slack desconocido: $SLACK_MODE (usa terminal, web o none)" ;;
+esac
 
-if [ -n "$WEB_URL" ]; then
-  orca tab create --worktree "$WORKTREE" --url "$WEB_URL" --json >/dev/null \
-    && log "Pestaña del navegador → $WEB_URL"
-fi
+[ -n "$WEB_URL" ] && open_web_tab "$WEB_URL" "$WEB_URL"
 
 log "Proyecto listo en Orca."

@@ -125,13 +125,50 @@ Crea una pestaña por cada cosa:
   agente que Orca ya tenga en marcha (lo dice `orca terminal list --json`) → la
   cuenta gestionada en `orca account list` → el primero instalado de `claude`,
   `codex`, `opencode`, `cursor-agent`, `aider`;
-- **Slack**, arrancando `weeslack`.
+- **Slack**, en terminal o en el navegador (ver abajo).
 
 Es idempotente: si la pestaña ya existe, no crea otra. Y si ya hay un WeeChat
 corriendo no abre un segundo, porque se pelearían por el mismo directorio de
 configuración.
 
 Para saltárselo durante la instalación: `./install.sh --no-project`.
+
+## Si no te convence WeeChat: Slack web en una pestaña
+
+El objetivo es no salir de Orca, y eso se cumple igual con el Slack de siempre
+dentro del navegador de Orca. No hace falta desinstalar nada:
+
+```bash
+./bin/orcaso-project --slack web
+```
+
+Para que sea el modo por defecto, en `weechat/local.env`:
+
+```bash
+: "${ORCASO_SLACK:=web}"
+: "${ORCASO_SLACK_URL:=https://miequipo.slack.com}"
+```
+
+**Pon la URL de tu workspace.** La genérica `https://app.slack.com/client`
+redirige a la pantalla de "encuentra tu espacio de trabajo".
+
+**La primera vez hay que iniciar sesión en esa pestaña.** El perfil de navegador
+de Orca importa cookies de Chrome, pero la sesión de Slack no viaja: sale la
+pantalla de conexión (con tu SSO, si lo usáis). Después el perfil la conserva.
+
+### Cuál usar
+
+| | WeeChat (`--slack terminal`) | Web (`--slack web`) |
+|---|---|---|
+| Arranque y consumo | instantáneo, unos MB | otro Electron cargado |
+| Manejo | todo con el teclado | ratón, como siempre |
+| Hilos, reacciones, edición, búsqueda | sí | sí |
+| Huddles, canvas, listas, workflows, apps | no | sí |
+| Imágenes y GIFs | arte ANSI, o al navegador con una tecla | nativo |
+| Mantenimiento | hay que renovar el token cuando caduca | ninguno |
+
+Los dos modos conviven: puedes tener WeeChat para el día a día y abrir la
+pestaña web solo cuando necesites un huddle. `--slack none` no monta ninguna.
 
 ## Arrancar
 

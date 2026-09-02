@@ -223,6 +223,8 @@ lanzar suelto:
 ```bash
 ./bin/orcaso-project                              # crea las pestañas que falten
 ./bin/orcaso-project --focus                      # y deja el foco en la última
+./bin/orcaso-project --slack web                  # Slack en el navegador de Orca
+./bin/orcaso-project --slack none                 # sin pestaña de Slack
 ./bin/orcaso-project --web https://ejemplo.com    # abre además el navegador
 ./bin/orcaso-project --cli codex                  # fuerza otro CLI de IA
 ```
@@ -246,6 +248,46 @@ En este orden, y se queda con el primero que resuelva:
 3. La cuenta gestionada que aparezca en `orca account list` (Claude o Codex).
 4. El primero instalado de `claude`, `codex`, `opencode`, `cursor-agent`,
    `aider`.
+
+### Slack en el navegador en vez de en WeeChat
+
+WeeChat no es obligatorio. El objetivo —no salir de Orca— se cumple igual con el
+cliente web dentro del navegador de Orca:
+
+```bash
+./bin/orcaso-project --slack web
+```
+
+o, de forma permanente, en `weechat/local.env`:
+
+```bash
+: "${ORCASO_SLACK:=web}"
+: "${ORCASO_SLACK_URL:=https://miequipo.slack.com}"
+```
+
+Dos cosas que conviene saber, comprobadas:
+
+- **Usa la URL de tu workspace.** La genérica `https://app.slack.com/client`
+  redirige a la pantalla de "encuentra tu espacio de trabajo".
+- **La sesión no se hereda de Chrome.** El perfil `default` del navegador de
+  Orca importa cookies de Chrome (`orca tab profile list` lo muestra como
+  `source:chrome`), pero la de Slack no viaja: la primera vez sale la pantalla
+  de conexión. Una vez dentro, el perfil la conserva.
+
+La idempotencia de esta pestaña se comprueba **por host y no por URL completa**,
+porque Slack redirige nada más abrir y la URL de la pestaña deja de ser la que
+se pidió.
+
+| | WeeChat (`--slack terminal`) | Web (`--slack web`) |
+|---|---|---|
+| Arranque y consumo | instantáneo, unos MB | otro Electron cargado |
+| Manejo | todo con el teclado | ratón |
+| Hilos, reacciones, edición, búsqueda | sí | sí |
+| Huddles, canvas, listas, workflows, apps | no | sí |
+| Imágenes y GIFs | arte ANSI, o al navegador con una tecla | nativo |
+| Mantenimiento | renovar el token cuando caduca | ninguno |
+
+Conviven sin problema: `--slack none` no monta ninguna de las dos.
 
 ### Detalles
 
