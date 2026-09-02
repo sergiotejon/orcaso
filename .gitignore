@@ -11,6 +11,13 @@
 *.swo
 *~
 
+# Entorno de devbox y artefactos de Nix
+# (.devbox se autoignora con su propio .gitignore, pero no conviene depender de eso)
+.devbox/
+.direnv/
+result
+result-*
+
 # Artefactos de compilación de wee-slack (si se construye dentro del repo)
 build/
 wee-slack-src/
