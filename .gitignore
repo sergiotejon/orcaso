@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Artefactos de compilación de wee-slack (si se construye dentro del repo)
+build/
+wee-slack-src/
+*.pyc
+__pycache__/
+
+# Nunca subir credenciales ni copias de la configuración de WeeChat,
+# que guarda el token de Slack y la cookie en texto plano.
+*.conf
+sec.conf
+slack.conf
+.env
+*.token
+*.cookie
+weechat-backup/
+logs/
+*.weechatlog
+
+# ...pero la configuración versionada de este repo sí se sube (no lleva secretos)
+!weechat/*.conf

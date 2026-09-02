@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.0/.schema/devbox.schema.json",
+  "packages": [
+    "path:./nix#weechat-slack",
+    "chafa@latest",
+    "curl@latest",
+    "git@latest",
+    "perl@latest"
+  ],
+  "shell": {
+    "scripts": {
+      "start": "weechat",
+      "setup": "./install.sh",
+      "update": "./install.sh --update"
+    }
+  }
+}
