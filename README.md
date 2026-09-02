@@ -99,3 +99,15 @@ bin/slack-img                   imagen o GIF -> arte ANSI dentro de un buffer
 bin/slack-open                  URL -> pestaña del navegador de Orca
 MANUAL.md
 ```
+
+## Licencia
+
+[MIT](LICENSE).
+
+Este repositorio solo contiene el instalador, la configuración y unos scripts
+propios. [WeeChat](https://weechat.org/) (GPL-3.0),
+[wee-slack](https://github.com/wee-slack/wee-slack) (MIT),
+[go.py](https://weechat.org/scripts/source/go.py.html),
+[url_hint.py](https://weechat.org/scripts/source/url_hint.py.html) y
+[chafa](https://hpjansson.org/chafa/) los instala `install.sh` y cada uno
+conserva la suya.
