@@ -22,6 +22,7 @@ máquinas con el mismo commit acaban idénticas.
 | Abrir un enlace de un mensaje | pestaña del navegador de Orca, con una tecla |
 | Ver un GIF que te han mandado | dentro del buffer, o en el navegador de Orca |
 | Buscar un canal entre cien | `Ctrl`+`g` y tres letras |
+| Buscar y ojear ficheros | `fang`, otra pestaña más |
 
 ## Instalación
 
@@ -172,7 +173,10 @@ Crea una pestaña por cada cosa:
   agente que Orca ya tenga en marcha (lo dice `orca terminal list --json`) → la
   cuenta gestionada en `orca account list` → el primero instalado de `claude`,
   `codex`, `opencode`, `cursor-agent`, `aider`;
-- **Slack**, en terminal o en el navegador (ver abajo).
+- **Slack**, en terminal o en el navegador (ver abajo);
+- **fang**, un gestor de ficheros TUI: navegar el repositorio con previsualización
+  con resaltado, búsqueda difusa, operaciones de git, selector de objetivos del
+  Makefile y un shell embebido. Se quita con `--no-fang` o `ORCASO_FANG=off`.
 
 Es idempotente: si la pestaña ya existe, no crea otra. Y si ya hay un WeeChat
 corriendo no abre un segundo, porque se pelearían por el mismo directorio de
@@ -275,12 +279,18 @@ secas arranca cualquier otro WeeChat del PATH, y ese no llevará
   publica un `slack.py` listo para usar.
 - **go.py** (saltar a un buffer por nombre) y **url_hint.py** (numera las URLs).
 - **chafa** y dos scripts propios para ver imágenes y GIFs desde WeeChat.
+- **fang**, gestor de ficheros TUI, empaquetado desde su repositorio con su
+  `Cargo.lock` versionado aquí (el upstream no publica uno).
 - Las pestañas del proyecto en Orca: el CLI de IA y Slack.
 
 ## Atajos imprescindibles
 
 **slack-tui**: `?` ayuda · `j`/`k` mover · `Tab` cambiar de panel · `Enter`/`t`
 hilo · `i` escribir · `s` buscar · `Ctrl`+`K` paleta · `q` salir.
+
+**fang**: `j`/`k` mover · `h`/`l` subir/entrar · `/` buscar · `g` menú de git ·
+`m` objetivos del Makefile · `t` terminal embebida · `o` abrir con la app del
+sistema · `h` ayuda · `q` salir.
 
 **WeeChat**: `Ctrl`+`g` saltar a un canal · `Ctrl`+`v` volver (salir de un hilo)
 · `Tab` completar, con la lista en vertical · `Ctrl`/`Alt`+clic abrir un hilo ·
@@ -306,7 +316,9 @@ weechat/settings.conf           la configuración de WeeChat, versionada
 weechat/default-channel.conf    el trigger del canal por defecto
 weechat/local.env.example       plantilla de los ajustes de cada máquina
 bin/orcaso-project              monta las pestañas del proyecto en Orca
-bin/slack-tui                   lanzador del extra opcional slack-tui
+bin/slack-tui                   lanzador de slack-tui
+bin/fang                        lanzador del gestor de ficheros
+nix/fang-Cargo.lock             dependencias de fang, fijadas
 nix/patches/                    parches locales de slack-tui
 bin/weeslack                    lanzador
 bin/slack-img                   imagen o GIF -> arte ANSI dentro de un buffer

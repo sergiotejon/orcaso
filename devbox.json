@@ -3,6 +3,7 @@
   "packages": [
     "path:./nix#weechat-slack",
     "path:./nix#slack-tui",
+    "path:./nix#fang",
     "chafa@latest",
     "curl@latest",
     "git@latest",
@@ -15,7 +16,8 @@
       "setup": "./install.sh",
       "update": "./install.sh --update",
       "project": "./bin/orcaso-project",
-      "slack": "./bin/slack-tui"
+      "slack": "./bin/slack-tui",
+      "files": "fang"
     }
   }
 }

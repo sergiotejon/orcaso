@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 #
 # Deja montado el proyecto en Orca con las pestañas básicas: el CLI de IA que
-# uses y Slack. La idea es no tener que salir de Orca para nada.
+# uses, Slack y un gestor de ficheros. La idea es no salir de Orca para nada.
 #
-#   orcaso-project [--focus] [--slack terminal|web|none] [--web <url>] [--cli <cmd>]
+#   orcaso-project [--focus] [--slack tui|terminal|web|none] [--web <url>]
+#                  [--cli <cmd>] [--no-fang]
 #
 #   --focus        deja el foco en la última pestaña creada
 #   --slack <modo> tui (slack-tui, por defecto), terminal (WeeChat),
 #                  web (Slack en el navegador de Orca) o none
 #   --web <url>    abre además una pestaña del navegador de Orca
 #   --cli <cmd>    fuerza el CLI de IA (si no, se detecta)
+#   --no-fang      no monta la pestaña del gestor de ficheros
 #
 # Es idempotente: si ya existe una pestaña con ese título en este worktree, no
 # crea otra.
@@ -29,6 +31,7 @@ WORKTREE="${ORCA_WORKTREE:-path:$REPO_DIR}"
 FOCUS=""
 WEB_URL="${ORCASO_WEB_URL:-}"
 AI_CLI="${ORCASO_AI_CLI:-}"
+FANG="${ORCASO_FANG:-on}"
 SLACK_MODE="${ORCASO_SLACK:-tui}"
 # Conviene poner la URL del workspace (https://<equipo>.slack.com) en
 # weechat/local.env: la genérica redirige a la pantalla de elegir espacio.
@@ -40,7 +43,8 @@ while [ $# -gt 0 ]; do
     --web)   WEB_URL="$2"; shift ;;
     --slack) SLACK_MODE="$2"; shift ;;
     --cli)   AI_CLI="$2"; shift ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-fang) FANG=off ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Opción desconocida: $1" >&2; exit 1 ;;
   esac
   shift
@@ -170,6 +174,10 @@ case "$SLACK_MODE" in
   none) ;;
   *) warn "Modo de Slack desconocido: $SLACK_MODE (usa terminal, tui, web o none)" ;;
 esac
+
+# Gestor de ficheros: navegar el repo, previsualizar, git y un shell embebido
+# sin abrir otra ventana.
+[ "$FANG" = on ] && create_terminal "Fang" "$REPO_DIR/bin/fang"
 
 [ -n "$WEB_URL" ] && open_web_tab "$WEB_URL" "$WEB_URL"
 

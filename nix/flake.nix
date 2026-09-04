@@ -55,6 +55,25 @@
         # tarda minutos en arrancar, que es justo lo que arregla el parche.
         slack-tui-upstream = mkSlackTui { suffix = "-upstream"; patches = [ ]; };
 
+        # fang: gestor de ficheros TUI (Rust). Otra cosa más que deja de
+        # obligarte a salir de Orca.
+        fang = pkgs.rustPlatform.buildRustPackage {
+          pname = "fang";
+          version = "1.0.0";
+          src = pkgs.fetchFromGitHub {
+            owner = "theburrowhub";
+            repo = "fang";
+            rev = "8a25e6b4567c9cde1f17b78e81e5bbc236d714af";
+            hash = "sha256-l88hyBzj0WN47CLkp3zbkWDqdWpxgFeonCYsTmI3G8c=";
+          };
+          # El repositorio no publica Cargo.lock, así que se genera una vez y
+          # se versiona aquí: fija las 263 dependencias transitivas en lugar de
+          # resolverlas de nuevo en cada máquina.
+          cargoLock.lockFile = ./fang-Cargo.lock;
+          postPatch = "cp ${./fang-Cargo.lock} Cargo.lock";
+          meta.mainProgram = "fang";
+        };
+
         default = weechat-slack;
       });
     };

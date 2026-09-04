@@ -48,6 +48,7 @@ documentando la v2 — ver [§14](#14-diferencias-con-el-readme-oficial)).
 | **slack-tui** (cliente por defecto, parcheado) | 0.6.1-orcaso | `nix/flake.nix`, vía devbox |
 | `slack-tui-upstream` (sin parches, para comparar) | 0.6.1 | `nix/flake.nix` |
 | WeeChat con `websocket-client` en su Python | 4.10.0 | `nix/flake.nix`, vía devbox |
+| **fang** (gestor de ficheros TUI) | 1.0.0 | `nix/flake.nix`, vía devbox |
 | `chafa` (imágenes como arte ANSI) | 1.18.2 | devbox |
 | `jq`, `git`, `curl`, `perl` | fijadas | devbox |
 | wee-slack (solo en modo `terminal`) | 3.0.0 (`master`) | compilado del fuente por `install.sh` |
@@ -247,13 +248,29 @@ lanzar suelto:
 ./bin/orcaso-project --cli codex                  # fuerza otro CLI de IA
 ```
 
-Crea una pestaña para el **CLI de IA** y otra para **Slack**. Por dentro es la
-CLI de Orca:
+Crea una pestaña para el **CLI de IA**, otra para **Slack** y otra para **fang**,
+el gestor de ficheros. Por dentro es la CLI de Orca:
 
 ```bash
 orca terminal create --worktree path:<repo> --title Slack --command <repo>/bin/weeslack
 orca tab create --worktree path:<repo> --url <url>
 ```
+
+### fang, el gestor de ficheros
+
+```bash
+fang                                  # o ./bin/fang
+./bin/orcaso-project --no-fang        # no montar su pestaña
+```
+
+Un explorador TUI en Rust: previsualización con resaltado de sintaxis, búsqueda
+difusa con `/`, menú de git con `g`, selector de objetivos del Makefile con `m`,
+terminal embebida con `t` y ayuda con `h`.
+
+Se empaqueta desde su repositorio en un commit fijado, con un detalle: **el
+upstream no publica `Cargo.lock`**, y `buildRustPackage` lo necesita. Se generó
+una vez y vive en `nix/fang-Cargo.lock`, así que las 263 dependencias
+transitivas quedan clavadas en lugar de resolverse otra vez en cada máquina.
 
 ### Cómo elige el CLI de IA
 
