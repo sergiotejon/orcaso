@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # Lanza el slack-tui parcheado que define nix/flake.nix.
 #
+#   bin/slack-tui              la versión parcheada
+#   bin/slack-tui --upstream   el mismo commit sin parches, para comparar
+#
 # No está en devbox.json a propósito: es un extra, no una dependencia del
 # repositorio. Los parches que lleva están en nix/patches/.
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
 export NIX_CONFIG="${NIX_CONFIG:-experimental-features = nix-command flakes}"
-exec nix run "$REPO_DIR/nix#slack-tui" -- "$@"
+# --upstream lanza el mismo commit sin los parches, para comparar.
+PKG="slack-tui"
+if [ "${1:-}" = "--upstream" ]; then
+  PKG="slack-tui-upstream"; shift
+  echo "Lanzando slack-tui SIN parches: el arranque puede tardar varios minutos." >&2
+fi
+exec nix run "$REPO_DIR/nix#$PKG" -- "$@"

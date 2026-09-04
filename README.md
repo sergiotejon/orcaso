@@ -144,6 +144,7 @@ dependencias por defecto**: solo lo tiene quien lo pide.
 
 ```bash
 ./bin/slack-tui                     # lanzarlo
+./bin/slack-tui --upstream          # sin los parches, para comparar
 ./bin/orcaso-project --slack tui    # como pestaña de Slack
 ```
 

@@ -258,8 +258,14 @@ quien clone el repositorio no se lo encuentra a menos que lo pida.
 
 ```bash
 ./bin/slack-tui                       # lanzarlo suelto
+./bin/slack-tui --upstream            # el mismo commit sin parches, para comparar
 ./bin/orcaso-project --slack tui      # montarlo como la pestaña de Slack
 ```
+
+El flake define los dos paquetes desde el mismo commit y los mismos hashes:
+`slack-tui` (parcheado) y `slack-tui-upstream` (intacto). Sirve para comprobar
+el efecto de los parches sin creerse la palabra de nadie — o para volver al
+original si alguno da problemas.
 
 o, permanente, en `weechat/local.env`:
 
