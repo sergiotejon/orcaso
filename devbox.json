@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.0/.schema/devbox.schema.json",
   "packages": [
     "path:./nix#weechat-slack",
+    "path:./nix#slack-tui",
     "chafa@latest",
     "curl@latest",
     "git@latest",
@@ -13,7 +14,8 @@
       "start": "weechat",
       "setup": "./install.sh",
       "update": "./install.sh --update",
-      "project": "./bin/orcaso-project"
+      "project": "./bin/orcaso-project",
+      "slack": "./bin/slack-tui"
     }
   }
 }

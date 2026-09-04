@@ -15,7 +15,7 @@ De ahí salen varias decisiones de diseño que si no parecerían caprichos:
 - Las **dependencias** van fijadas con devbox/Nix, para que el entorno se
   reproduzca en cualquier máquina donde tengas Orca ([§1](#1-qué-hay-instalado)).
 - La **configuración de WeeChat** está versionada y se aplica sola, para que una
-  máquina nueva quede igual sin tocar nada a mano ([§2](#2-instalar-y-actualizar-con-installsh)).
+  máquina nueva quede igual sin tocar nada a mano ([§2](#2-instalar-y-actualizar)).
 
 Todo lo de aquí está verificado contra el código de **wee-slack v3.0.0**
 instalado en la máquina, no contra el README oficial (que en varios puntos sigue
@@ -24,7 +24,7 @@ documentando la v2 — ver [§14](#14-diferencias-con-el-readme-oficial)).
 **Índice**
 
 1. [Qué hay instalado](#1-qué-hay-instalado)
-2. [Instalar y actualizar con `install.sh`](#2-instalar-y-actualizar-con-installsh)
+2. [Instalar y actualizar](#2-instalar-y-actualizar)
 2 bis. [El proyecto en Orca](#2-bis-el-proyecto-en-orca)
 3. [Arrancar y conectar](#3-arrancar-y-conectar)
 4. [Moverse entre canales](#4-moverse-entre-canales)
@@ -45,14 +45,14 @@ documentando la v2 — ver [§14](#14-diferencias-con-el-readme-oficial)).
 
 | Componente | Versión | De dónde sale |
 |---|---|---|
-| WeeChat (con `websocket-client` dentro de su Python) | 4.10.0 | `nix/flake.nix`, vía devbox |
+| **slack-tui** (cliente por defecto, parcheado) | 0.6.1-orcaso | `nix/flake.nix`, vía devbox |
+| `slack-tui-upstream` (sin parches, para comparar) | 0.6.1 | `nix/flake.nix` |
+| WeeChat con `websocket-client` en su Python | 4.10.0 | `nix/flake.nix`, vía devbox |
 | `chafa` (imágenes como arte ANSI) | 1.18.2 | devbox |
-| `git`, `curl`, `perl` (para la instalación) | fijadas | devbox |
-| wee-slack | 3.0.0 (`master`) | compilado del fuente por `install.sh` |
-| `go.py` (saltar a buffer por nombre) | 3.1.1 | descargado por `install.sh` |
-| `url_hint.py` (numera las URLs) | 0.8 | descargado por `install.sh` |
-| `jq` (leer la salida JSON de la CLI de Orca) | fijada | devbox |
-| `bin/slack-img`, `bin/slack-open`, `bin/weeslack`, `bin/orcaso-project` | — | este repositorio |
+| `jq`, `git`, `curl`, `perl` | fijadas | devbox |
+| wee-slack (solo en modo `terminal`) | 3.0.0 (`master`) | compilado del fuente por `install.sh` |
+| `go.py`, `url_hint.py` (solo en modo `terminal`) | 3.1.1 / 0.8 | descargados por `install.sh` |
+| `bin/*` | — | este repositorio |
 
 Las **dependencias** están fijadas por Nix (`devbox.lock` y `nix/flake.lock`) y
 viven en `/nix/store`: no se instala nada en el sistema salvo el propio devbox.
@@ -113,22 +113,37 @@ cambias solo con `/set` desde WeeChat, se perderá en la próxima máquina.
 > Eso es lo que hay en `nix/flake.nix`, y es la razón de que haya un flake y no
 > solo un `devbox.json`: devbox no sabe expresar un override de un paquete.
 
-## 2. Instalar y actualizar con `install.sh`
+## 2. Instalar y actualizar
 
-En una máquina nueva basta con clonar el repositorio y ejecutar:
+En una máquina nueva:
 
 ```bash
-./install.sh
+git clone git@github.com:sergiotejon/orcaso.git
+cd orcaso
+devbox run setup
 ```
 
-Si no hay devbox, lo instala (y devbox instala Nix si hace falta). A partir de
-ahí todas las dependencias salen del entorno del proyecto. El script es
-idempotente: se puede volver a ejecutar cuantas veces haga falta.
+`devbox run setup` y `./install.sh` son lo mismo. Si no hay devbox, el script lo
+instala (y devbox instala Nix si hace falta). Es idempotente: se puede repetir
+cuantas veces haga falta.
+
+**El reparto de responsabilidades importa para entender el repositorio.** devbox
+resuelve las *dependencias* y las fija en `devbox.lock` y `nix/flake.lock`; el
+script hace lo que Nix deliberadamente no hace, que es tocar tu estado: escribir
+`~/.config`, dejar lanzadores en `~/.local/bin`, hablar con un WeeChat que ya
+está corriendo y montar pestañas en Orca.
+
+**El cliente elegido decide qué trabajo se hace.** Con `ORCASO_SLACK=tui` (el
+valor por defecto) no se compila wee-slack ni se toca la configuración de
+WeeChat; con `terminal`, al revés. Se cambia en `weechat/local.env` o con
+`--slack`.
 
 ```bash
-./install.sh --update         # actualiza wee-slack y los scripts, y los recarga
-./install.sh --no-config      # instala sin tocar la configuración de WeeChat
-./install.sh --no-token       # no pregunta por el token
+./install.sh --slack terminal # WeeChat en lugar de slack-tui
+./install.sh --update         # actualiza el cliente elegido
+./install.sh --no-config      # sin tocar ninguna configuración
+./install.sh --no-project     # sin montar las pestañas de Orca
+./install.sh --no-token       # no pregunta por el token (solo modo terminal)
 ./install.sh --default-channel '#otro'   # canal al que saltar al arrancar
 ./install.sh --no-default-channel
 ./install.sh --workspace otro
@@ -144,17 +159,19 @@ SLACK_WORKSPACE=miequipo SLACK_TOKEN=xoxc-... SLACK_COOKIE='d=xoxd-...' ./instal
 Qué hace, en orden:
 
 1. Instala devbox si falta.
-2. `devbox install`: WeeChat (del flake, con `websocket-client` dentro de su
-   Python), `chafa`, `git`, `curl` y `perl`, todo en las versiones de los
-   lockfiles.
-3. Clona wee-slack y ejecuta su `build.sh` — `master` **no** publica un
-   `slack.py` compilado, hay que generarlo del paquete `slack/` + `main.py`.
-   Copia el resultado y `weemoji.json`, y crea los symlinks de `autoload/`.
-4. Descarga `go.py` y `url_hint.py`.
-5. Deja el lanzador en `~/.local/bin/weeslack`.
-6. Aplica `weechat/settings.conf`, el trigger del canal por defecto y registra
-   el workspace con el token. Los nombres salen de `weechat/local.env` (ver
-   más abajo).
+2. `devbox install`: slack-tui y WeeChat (ambos del flake), `chafa`, `jq`,
+   `git`, `curl` y `perl`, en las versiones de los lockfiles.
+3. **Solo en modo `terminal`**: clona wee-slack y ejecuta su `build.sh` —
+   `master` **no** publica un `slack.py` compilado, hay que generarlo del
+   paquete `slack/` + `main.py` — y descarga `go.py` y `url_hint.py`.
+4. Deja los lanzadores `slack-tui` y `weeslack` en `~/.local/bin`.
+5. Configura el cliente elegido:
+   - `tui`: escribe el canal por defecto en `~/.config/slack-tui/prefs.json`, y
+     el Client ID en `oauth.json` si `SLACK_TUI_CLIENT_ID` está puesto. Avisa si
+     todavía falta `slack-tui login`.
+   - `terminal`: aplica `weechat/settings.conf`, el trigger del canal por
+     defecto y registra el workspace con el token.
+6. Monta las pestañas del proyecto en Orca.
 
 Para aplicar la configuración habla con WeeChat por su FIFO si lo detecta
 corriendo (así no pierdes la sesión); si no, lo arranca en efímero, aplica,

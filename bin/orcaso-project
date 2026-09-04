@@ -6,7 +6,7 @@
 #   orcaso-project [--focus] [--slack terminal|web|none] [--web <url>] [--cli <cmd>]
 #
 #   --focus        deja el foco en la última pestaña creada
-#   --slack <modo> terminal (weeslack, por defecto), tui (slack-tui parcheado),
+#   --slack <modo> tui (slack-tui, por defecto), terminal (WeeChat),
 #                  web (Slack en el navegador de Orca) o none
 #   --web <url>    abre además una pestaña del navegador de Orca
 #   --cli <cmd>    fuerza el CLI de IA (si no, se detecta)
@@ -29,7 +29,7 @@ WORKTREE="${ORCA_WORKTREE:-path:$REPO_DIR}"
 FOCUS=""
 WEB_URL="${ORCASO_WEB_URL:-}"
 AI_CLI="${ORCASO_AI_CLI:-}"
-SLACK_MODE="${ORCASO_SLACK:-terminal}"
+SLACK_MODE="${ORCASO_SLACK:-tui}"
 # Conviene poner la URL del workspace (https://<equipo>.slack.com) en
 # weechat/local.env: la genérica redirige a la pantalla de elegir espacio.
 SLACK_URL="${ORCASO_SLACK_URL:-https://app.slack.com/client}"

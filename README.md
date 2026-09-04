@@ -7,9 +7,9 @@ IA y un navegador. Lo que faltaba era Slack: seguir hablando con la gente sin
 cambiar de aplicación, sin notificaciones de escritorio robándote el foco y sin
 perder el sitio.
 
-Este repositorio pone Slack en una pestaña más — **WeeChat + wee-slack** — y
-deja el proyecto montado con las pestañas básicas: el CLI de IA que uses y
-Slack, cada uno en la suya.
+Este repositorio pone Slack en una pestaña más — **slack-tui** por defecto,
+**WeeChat + wee-slack** si lo prefieres — y deja el proyecto montado con las
+pestañas básicas: el CLI de IA que uses y Slack, cada uno en la suya.
 
 Todas las dependencias van fijadas con **devbox/Nix** y la configuración está
 versionada aquí. No se instala nada en el sistema salvo el propio devbox, y dos
@@ -28,22 +28,59 @@ máquinas con el mismo commit acaban idénticas.
 ```bash
 git clone git@github.com:sergiotejon/orcaso.git
 cd orcaso
-./install.sh
+devbox run setup
 ```
 
-Si no hay devbox, lo instala (y devbox instala Nix si hace falta). El script es
-idempotente. Te pedirá el token de sesión de Slack; también se puede pasar por
-entorno:
+Si no tienes devbox, instálalo antes con una línea (él instala Nix si hace
+falta) y vuelve a lanzarlo:
 
 ```bash
-SLACK_WORKSPACE=miequipo \
-SLACK_DEFAULT_CHANNEL='#general' \
-SLACK_TOKEN=xoxc-... \
-SLACK_COOKIE='d=xoxd-...' \
-./install.sh
+curl -fsSL https://get.jetify.com/devbox | bash
 ```
 
-O de forma permanente, en un fichero que git ignora:
+`./install.sh` hace exactamente lo mismo que `devbox run setup`; el script es
+idempotente y se puede repetir cuantas veces quieras.
+
+### Qué hace devbox y qué hace el script
+
+**devbox se encarga de las dependencias**, y las fija en `devbox.lock` y
+`nix/flake.lock`: `slack-tui`, WeeChat, `chafa`, `jq`, `git`, `curl` y `perl`.
+Viven en `/nix/store`, no en tu sistema, y son idénticas en cualquier máquina
+con el mismo commit.
+
+**El script se encarga de lo que devbox no puede hacer**, que es todo lo que
+toca tu cuenta y tu estado: escribir `~/.config`, dejar los lanzadores en
+`~/.local/bin`, aplicar la configuración a un WeeChat que ya está corriendo, y
+montar las pestañas en Orca. Nix es declarativo y reproducible justamente porque
+no toca nada de eso.
+
+### Elegir cliente
+
+Por defecto instala **slack-tui**. Con `ORCASO_SLACK` en `weechat/local.env`, o
+con `--slack` en la línea de comandos, se elige otro:
+
+| Modo | Qué instala y monta |
+|---|---|
+| `tui` *(por defecto)* | slack-tui, con su canal por defecto |
+| `terminal` | WeeChat + wee-slack compilado, con toda su configuración |
+| `web` | nada: Slack va en una pestaña del navegador de Orca |
+| `none` | ningún cliente |
+
+El modo decide también **qué trabajo se hace**: en modo `tui` no se compila
+wee-slack ni se toca la configuración de WeeChat, y al revés.
+
+```bash
+./install.sh --slack terminal   # WeeChat en lugar de slack-tui
+./install.sh --update           # actualiza el cliente elegido
+./install.sh --no-project       # sin montar las pestañas de Orca
+./install.sh --no-config        # sin tocar ninguna configuración
+./install.sh --help
+```
+
+### Tus ajustes no van al repositorio
+
+El nombre del workspace, el canal por defecto, el cliente y el Client ID de la
+app viven en **`weechat/local.env`**, que está en el `.gitignore`:
 
 ```bash
 cp weechat/local.env.example weechat/local.env
@@ -53,11 +90,21 @@ $EDITOR weechat/local.env
 ```bash
 : "${SLACK_WORKSPACE:=miequipo}"
 : "${SLACK_DEFAULT_CHANNEL:=&equipo-privado}"
+: "${ORCASO_SLACK:=tui}"
 ```
 
-El prefijo del canal importa: `#` público, `&` privado, `@` grupo. La
-precedencia es opciones de la línea de comandos > entorno > `local.env` >
-valores por defecto.
+La precedencia es: línea de comandos > variables de entorno > `local.env` >
+valores por defecto del repositorio. Los tokens tampoco se guardan aquí: los
+escribe `slack-tui login` en `~/.config/slack-tui/tokens.json`.
+
+### Último paso
+
+```bash
+slack-tui login
+```
+
+Abre el navegador para autorizar la app. Necesitas su Client ID, y para eso
+sigue leyendo.
 
 ## Conseguir el token de Slack
 
@@ -133,30 +180,47 @@ configuración.
 
 Para saltárselo durante la instalación: `./install.sh --no-project`.
 
-## Si no te convence WeeChat
+## Los tres clientes
 
-Hay dos alternativas montadas, y las tres conviven.
+Conviven, y se cambia entre ellos con `ORCASO_SLACK` o `--slack`.
 
-### slack-tui (extra opcional)
+### slack-tui *(por defecto)*
 
-Un cliente de terminal modal, empaquetado en `nix/flake.nix` y **fuera de las
-dependencias por defecto**: solo lo tiene quien lo pide.
+Cliente modal, estilo vim. `?` abre el mapa de teclas.
 
 ```bash
-./bin/slack-tui                     # lanzarlo
-./bin/slack-tui --upstream          # sin los parches, para comparar
+slack-tui                           # arrancar
+slack-tui --upstream                # el mismo commit sin los parches, para comparar
 ./bin/orcaso-project --slack tui    # como pestaña de Slack
 ```
 
-Lleva dos parches locales (`nix/patches/`): uno cambia `conversations.list` por
-`users.conversations`, que baja el arranque de más de doce minutos a segundos en
-un workspace de empresa; el otro añade una preferencia `default_channel`.
-No están mandados al proyecto original.
+Lo empaqueta `nix/flake.nix` con **dos parches locales** (`nix/patches/`), no
+enviados al proyecto original:
 
-No pinta imágenes ni GIFs, y sus avisos van por sondeo. Detalle completo en
-[MANUAL.md](MANUAL.md).
+1. **`users.conversations` en vez de `conversations.list`.** El upstream recorre
+   el workspace entero al arrancar para quedarse solo con tus canales. Medido en
+   un Slack de empresa: **446 s** el original contra **8 s** el parcheado, y no
+   es cosa del primer arranque — no hay caché, lo paga cada vez.
+2. **`default_channel`** en `prefs.json`, porque el upstream abre siempre en el
+   primer canal por orden alfabético.
 
-### Slack web en una pestaña
+Lo que **no** tiene: no pinta imágenes ni GIFs (los abre con `open`, fuera de
+Orca), y sus notificaciones van por sondeo — DMs cada 25 s, menciones en canales
+cada 2 min — y solo mientras esté abierto.
+
+### WeeChat + wee-slack
+
+```bash
+./install.sh --slack terminal
+weeslack
+```
+
+Más completo en lo visual: pinta imágenes y GIFs dentro del buffer con `chafa`
+(`Alt`+`i`) o los manda a una pestaña de Orca (`Alt`+`o`), tiene búsqueda de
+canales con `Ctrl`+`g`, hilos, reacciones y edición por regex. A cambio, la
+configuración es más larga — toda versionada en `weechat/`.
+
+### Slack web en una pestaña de Orca
 
 El objetivo es no salir de Orca, y eso se cumple igual con el Slack de siempre
 dentro del navegador de Orca. No hace falta desinstalar nada:
@@ -181,22 +245,20 @@ pantalla de conexión (con tu SSO, si lo usáis). Después el perfil la conserva
 
 ### Cuál usar
 
-| | WeeChat (`--slack terminal`) | Web (`--slack web`) |
-|---|---|---|
-| Arranque y consumo | instantáneo, unos MB | otro Electron cargado |
-| Manejo | todo con el teclado | ratón, como siempre |
-| Hilos, reacciones, edición, búsqueda | sí | sí |
-| Huddles, canvas, listas, workflows, apps | no | sí |
-| Imágenes y GIFs | arte ANSI, o al navegador con una tecla | nativo |
-| Mantenimiento | hay que renovar el token cuando caduca | ninguno |
-
-Los dos modos conviven: puedes tener WeeChat para el día a día y abrir la
-pestaña web solo cuando necesites un huddle. `--slack none` no monta ninguna.
+| | slack-tui | WeeChat | Web |
+|---|---|---|---|
+| Arranque | 8 s | instantáneo | otro Electron |
+| Manejo | teclado, modal | teclado | ratón |
+| Hilos, reacciones, búsqueda | sí | sí | sí |
+| Imágenes y GIFs | no | en el buffer o en Orca | nativo |
+| Notificaciones | sondeo: DM 25 s, canal 2 min | vía script | del sistema |
+| Huddles, canvas, apps | no | no | sí |
+| Mantenimiento | ninguno tras el login | renovar el token de sesión | ninguno |
 
 ## Arrancar
 
 ```bash
-weeslack
+slack-tui      # o weeslack, en modo terminal
 ```
 
 Es un lanzador que hace `devbox run -c <repo> -- weechat`. Escribir `weechat` a
@@ -205,25 +267,24 @@ secas arranca cualquier otro WeeChat del PATH, y ese no llevará
 
 ## Lo que monta
 
-- **WeeChat** con `websocket-client` dentro del Python que embebe su plugin.
-  Esa es la razón de que haya un flake y no solo un `devbox.json`: es un
-  override de la derivación, y devbox no sabe expresarlo.
-- **wee-slack v3** compilado del fuente — `master` no publica un `slack.py`
-  listo para usar.
+- **slack-tui** parcheado, o **WeeChat** con `websocket-client` dentro del Python
+  que embebe su plugin. Esa segunda es la razón de que haya un flake y no solo
+  un `devbox.json`: es un override de la derivación, y devbox no sabe
+  expresarlo.
+- **wee-slack v3** compilado del fuente, solo en modo `terminal` — `master` no
+  publica un `slack.py` listo para usar.
 - **go.py** (saltar a un buffer por nombre) y **url_hint.py** (numera las URLs).
 - **chafa** y dos scripts propios para ver imágenes y GIFs desde WeeChat.
-- La configuración de `weechat/*.conf`: teclas, ratón, apariencia, canal por
-  defecto, y los logs de conversaciones desactivados.
+- Las pestañas del proyecto en Orca: el CLI de IA y Slack.
 
 ## Atajos imprescindibles
 
-| Tecla | Qué hace |
-|---|---|
-| `Ctrl`+`g` | saltar a un canal por nombre |
-| `Ctrl`+`v` | volver al buffer anterior (así se sale de un hilo) |
-| `Tab` | completar; la lista sale en vertical debajo |
-| `Ctrl`/`Alt` + clic | abrir el hilo de un mensaje |
-| `Alt`+`i` / `Alt`+`o` | ver una imagen en el buffer / abrir el GIF en el navegador |
+**slack-tui**: `?` ayuda · `j`/`k` mover · `Tab` cambiar de panel · `Enter`/`t`
+hilo · `i` escribir · `s` buscar · `Ctrl`+`K` paleta · `q` salir.
+
+**WeeChat**: `Ctrl`+`g` saltar a un canal · `Ctrl`+`v` volver (salir de un hilo)
+· `Tab` completar, con la lista en vertical · `Ctrl`/`Alt`+clic abrir un hilo ·
+`Alt`+`i` ver una imagen en el buffer · `Alt`+`o` abrir el GIF en el navegador.
 
 En macOS, si un atajo con `Alt` no responde es la tecla Option, que el terminal
 no manda como Meta: pulsa `Esc` y luego la letra.

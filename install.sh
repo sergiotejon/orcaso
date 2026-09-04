@@ -5,10 +5,11 @@
 # sistema salvo el propio devbox.
 #
 #   ./install.sh                  instala todo y aplica la configuración
-#   ./install.sh --update         actualiza wee-slack y los scripts, y recarga
-#   ./install.sh --no-config      instala sin tocar la configuración de WeeChat
-#   ./install.sh --no-token       no pregunta por el token de Slack
+#   ./install.sh --update         actualiza el cliente y sus scripts
+#   ./install.sh --no-config      instala sin tocar ninguna configuración
+#   ./install.sh --no-token       no pregunta por el token (solo modo terminal)
 #   ./install.sh --no-project     no monta las pestañas del proyecto en Orca
+#   ./install.sh --slack terminal cliente: tui (por defecto), terminal, web, none
 #   ./install.sh --default-channel '#otro'   canal al que saltar al arrancar
 #   ./install.sh --no-default-channel
 #   ./install.sh --workspace otro
@@ -32,6 +33,9 @@ fi
 WORKSPACE="${SLACK_WORKSPACE:-miequipo}"
 # Canal al que saltar al arrancar. Prefijo: '#' público, '&' privado, '@' grupo.
 DEFAULT_CHANNEL="${SLACK_DEFAULT_CHANNEL:-&equipo-privado}"
+# Qué cliente de Slack se instala y se configura: tui (slack-tui, por defecto),
+# terminal (WeeChat + wee-slack), web (solo la pestaña del navegador) o none.
+SLACK_MODE="${ORCASO_SLACK:-tui}"
 DO_CONFIG=1
 DO_TOKEN=1
 DO_PROJECT=1
@@ -44,6 +48,7 @@ while [ $# -gt 0 ]; do
     --no-token)           DO_TOKEN=0 ;;
     --no-project)         DO_PROJECT=0 ;;
     --workspace)          WORKSPACE="$2"; shift ;;
+    --slack)              SLACK_MODE="$2"; shift ;;
     --default-channel)    DEFAULT_CHANNEL="$2"; shift ;;
     --no-default-channel) DEFAULT_CHANNEL="" ;;
     -h|--help)            sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -130,6 +135,7 @@ install_scripts() {
 install_launcher() {
   mkdir -p "$LAUNCHER_DIR"
   ln -sf "$REPO_DIR/bin/weeslack" "$LAUNCHER_DIR/weeslack"
+  ln -sf "$REPO_DIR/bin/slack-tui" "$LAUNCHER_DIR/slack-tui"
   case ":$PATH:" in
     *":$LAUNCHER_DIR:"*) log "Lanzador: weeslack" ;;
     *) warn "Añade $LAUNCHER_DIR al PATH para poder escribir solo 'weeslack'" ;;
@@ -187,6 +193,36 @@ configure() {
   fi
 }
 
+# slack-tui guarda sus preferencias en ~/.config/slack-tui. Solo se toca el
+# canal por defecto, que sale de local.env; el token lo escribe `slack-tui login`.
+configure_slack_tui() {
+  local dir="$HOME/.config/slack-tui" chan
+  chan="${DEFAULT_CHANNEL#\#}"; chan="${chan#&}"; chan="${chan#@}"
+  mkdir -p "$dir"
+  [ -f "$dir/prefs.json" ] || echo '{}' > "$dir/prefs.json"
+
+  if [ -n "$chan" ]; then
+    CHAN="$chan" DIR="$dir" python3 - <<'PYEOF'
+import json, os, pathlib
+p = pathlib.Path(os.environ["DIR"]) / "prefs.json"
+d = json.loads(p.read_text() or "{}")
+d["default_channel"] = os.environ["CHAN"]
+p.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
+PYEOF
+    log "slack-tui: canal por defecto $chan"
+  fi
+
+  if [ -n "${SLACK_TUI_CLIENT_ID:-}" ] && [ ! -f "$dir/oauth.json" ]; then
+    printf '{"client_id":"%s"}\n' "$SLACK_TUI_CLIENT_ID" > "$dir/oauth.json"
+    chmod 600 "$dir/oauth.json"
+    log "slack-tui: Client ID escrito en oauth.json"
+  fi
+
+  if [ ! -f "$dir/tokens.json" ]; then
+    warn "slack-tui todavía no tiene sesión. Ejecuta:  slack-tui login"
+  fi
+}
+
 configure_token() {
   local token="${SLACK_TOKEN:-}" cookie="${SLACK_COOKIE:-}"
 
@@ -228,21 +264,41 @@ install_devbox
 
 if [ "$UPDATE_ONLY" -eq 1 ]; then
   install_deps
-  install_weeslack
-  install_scripts
-  reload_scripts
+  if [ "$SLACK_MODE" = terminal ]; then
+    install_weeslack
+    install_scripts
+    reload_scripts
+  fi
   log "Actualizado. Si WeeChat no estaba abierto, los cambios se aplican al arrancarlo."
   exit 0
 fi
 
 install_deps
-install_weeslack
-install_scripts
+
+# Solo se hace el trabajo del cliente elegido: compilar wee-slack y aplicar la
+# configuración de WeeChat no tiene sentido si vas a usar slack-tui.
+case "$SLACK_MODE" in
+  terminal)
+    install_weeslack
+    install_scripts
+    ;;
+  tui|web|none) : ;;
+  *) die "Modo de Slack desconocido: $SLACK_MODE (usa tui, terminal, web o none)" ;;
+esac
+
 install_launcher
+
 if [ "$DO_CONFIG" -eq 1 ]; then
-  configure
-  [ "$DO_TOKEN" -eq 1 ] && configure_token
-  reload_scripts
+  case "$SLACK_MODE" in
+    terminal)
+      configure
+      [ "$DO_TOKEN" -eq 1 ] && configure_token
+      reload_scripts
+      ;;
+    tui)
+      configure_slack_tui
+      ;;
+  esac
 fi
 
 # Pestañas del proyecto en Orca: el CLI de IA y Slack.
@@ -250,10 +306,16 @@ if [ "$DO_PROJECT" -eq 1 ] && command -v orca >/dev/null 2>&1; then
   "$REPO_DIR/bin/orcaso-project" || warn "No pude montar las pestañas en Orca"
 fi
 
+case "$SLACK_MODE" in
+  terminal) launch="weeslack";  tip="Saltar de canal:  Ctrl+g" ;;
+  tui)      launch="slack-tui"; tip="Ayuda de teclas:  ?" ;;
+  *)        launch="—";         tip="Slack va por el navegador de Orca" ;;
+esac
+
 cat <<EOF
 
 $(log "Listo.")
-  Arranca con:      weeslack       (o: devbox run -c "$REPO_DIR" start)
-  Saltar de canal:  Ctrl+g
+  Arranca con:      $launch
+  $tip
   Manual:           $REPO_DIR/MANUAL.md
 EOF
