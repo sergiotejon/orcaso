@@ -1,0 +1,121 @@
+From 2eb43c472ada36a76da22d91ca7c13896900854c Mon Sep 17 00:00:00 2001
+From: orcaso <orcaso@localhost>
+Date: Fri, 4 Sep 2026 16:40:12 +0200
+Subject: [PATCH 1/2] source: list conversations with users.conversations
+
+conversations.list walks the entire workspace and then discards
+everything but IsMember. On a company workspace that is hundreds of
+paginated calls -- Slack returns pages far smaller than the requested
+limit (28, 30, 6, 4, 3...) and Tier-2 rate limiting kicks in after
+about seven of them with HTTP 429, Retry-After: 30. Startup took over
+twelve minutes before the UI could paint.
+
+users.conversations returns only the caller's memberships, so the same
+sidebar is one short paginated walk. It does not populate is_member --
+everything it returns is a membership by definition -- so the filter
+becomes the default branch.
+
+The channel browser keeps conversations.list: browsing joinable
+channels is exactly the case where the whole workspace is the point.
+---
+ internal/source/slack.go          |  9 +++++++--
+ internal/source/slack_api_test.go | 15 +++++++--------
+ 2 files changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/internal/source/slack.go b/internal/source/slack.go
+index 7fdfa7d..b5ec404 100644
+--- a/internal/source/slack.go
++++ b/internal/source/slack.go
+@@ -95,7 +95,12 @@ func (s *Slack) Load() (*data.Workspace, error) {
+ 	var channels, dms []data.Conversation
+ 	cursor := ""
+ 	for {
+-		convs, next, err := s.api.GetConversations(&slack.GetConversationsParameters{
++		// users.conversations returns only the conversations this user belongs
++		// to. conversations.list walks the entire workspace and then throws
++		// away everything but IsMember, which on a company workspace means
++		// hundreds of paginated calls and Tier-2 rate limiting (HTTP 429,
++		// Retry-After: 30) before the UI can start.
++		convs, next, err := s.api.GetConversationsForUser(&slack.GetConversationsForUserParameters{
+ 			Types: types, ExcludeArchived: true, Limit: 200, Cursor: cursor,
+ 		})
+ 		if err != nil {
+@@ -110,7 +115,7 @@ func (s *Slack) Load() (*data.Workspace, error) {
+ 				dms = append(dms, data.Conversation{ID: c.ID, Type: "dm", UserID: c.User})
+ 			case c.IsMpIM:
+ 				dms = append(dms, data.Conversation{ID: c.ID, Type: "dm", Name: mpimName(c.Name)})
+-			case c.IsMember:
++			default: // users.conversations only returns memberships, so IsMember is redundant (and unset)
+ 				channels = append(channels, data.Conversation{ID: c.ID, Type: "channel", Name: c.Name, Topic: c.Topic.Value})
+ 			}
+ 		}
+diff --git a/internal/source/slack_api_test.go b/internal/source/slack_api_test.go
+index 2cdb04a..7ae52df 100644
+--- a/internal/source/slack_api_test.go
++++ b/internal/source/slack_api_test.go
+@@ -32,7 +32,7 @@ import (
+ // ── Load ─────────────────────────────────────────────────────────────────
+ 
+ // TestSlackLoadPaginatesFiltersAndSorts drives Load's whole shape in one
+-// scenario: a two-page conversations.list (proves the cursor loop is
++// scenario: a two-page users.conversations (proves the cursor loop is
+ // followed — a regression there would silently drop the second page),
+ // membership/deletion filtering, group-DM inclusion, and DM name resolution
+ // for a user missing from the bulk users.list.
+@@ -54,14 +54,13 @@ func TestSlackLoadPaginatesFiltersAndSorts(t *testing.T) {
+ 		}))
+ 	})
+ 	calls := 0
+-	fk.on("conversations.list", func(w http.ResponseWriter, r *http.Request) {
++	fk.on("users.conversations", func(w http.ResponseWriter, r *http.Request) {
+ 		calls++
+ 		switch calls {
+ 		case 1:
+ 			fkJSON(w, fkOK(map[string]any{
+ 				"channels": []map[string]any{
+ 					{"id": "C2", "is_channel": true, "is_member": true, "name": "zebra", "topic": map[string]any{"value": "z"}},
+-					{"id": "CNOTMEM", "is_channel": true, "is_member": false, "name": "secret"},
+ 					{"id": "D1", "is_im": true, "user": "U2"},
+ 					{"id": "DDELETED", "is_im": true, "user": "U9", "is_user_deleted": true},
+ 					{"id": "DNOUSER", "is_im": true, "user": ""},
+@@ -78,7 +77,7 @@ func TestSlackLoadPaginatesFiltersAndSorts(t *testing.T) {
+ 				"response_metadata": map[string]any{"next_cursor": ""},
+ 			}))
+ 		default:
+-			t.Fatalf("conversations.list called %d times, want 2 (pagination should stop once next_cursor is empty)", calls)
++			t.Fatalf("users.conversations called %d times, want 2 (pagination should stop once next_cursor is empty)", calls)
+ 		}
+ 	})
+ 	fk.on("users.info", func(w http.ResponseWriter, r *http.Request) {
+@@ -153,7 +152,7 @@ func TestSlackLoadGroupDMsRequestParam(t *testing.T) {
+ 	fk.on("users.list", func(w http.ResponseWriter, r *http.Request) {
+ 		fkJSON(w, fkOK(map[string]any{"members": []map[string]any{{"id": "U1", "name": "me"}}, "response_metadata": map[string]any{"next_cursor": ""}}))
+ 	})
+-	fk.on("conversations.list", func(w http.ResponseWriter, r *http.Request) {
++	fk.on("users.conversations", func(w http.ResponseWriter, r *http.Request) {
+ 		fkJSON(w, fkOK(map[string]any{"channels": []map[string]any{}, "response_metadata": map[string]any{"next_cursor": ""}}))
+ 	})
+ 
+@@ -163,7 +162,7 @@ func TestSlackLoadGroupDMsRequestParam(t *testing.T) {
+ 		if _, err := s.Load(); err != nil {
+ 			t.Fatalf("Load (groupDMs=%v): %v", on, err)
+ 		}
+-		types := fk.lastForm("conversations.list").Get("types")
++		types := fk.lastForm("users.conversations").Get("types")
+ 		hasMpim := strings.Contains(types, "mpim")
+ 		if hasMpim != on {
+ 			t.Errorf("groupDMs=%v: types=%q, mpim present=%v, want %v", on, types, hasMpim, on)
+@@ -202,11 +201,11 @@ func TestSlackLoadConversationsListError(t *testing.T) {
+ 	fk.on("users.list", func(w http.ResponseWriter, r *http.Request) {
+ 		fkJSON(w, fkOK(map[string]any{"members": []map[string]any{}, "response_metadata": map[string]any{"next_cursor": ""}}))
+ 	})
+-	fk.on("conversations.list", func(w http.ResponseWriter, r *http.Request) { fkJSON(w, fkErr("internal_error")) })
++	fk.on("users.conversations", func(w http.ResponseWriter, r *http.Request) { fkJSON(w, fkErr("internal_error")) })
+ 	s := fkClient(fk)
+ 	_, err := s.Load()
+ 	if err == nil || !strings.Contains(err.Error(), "conversations:") {
+-		t.Fatalf("Load conversations.list error = %v, want wrapped with 'conversations:'", err)
++		t.Fatalf("Load users.conversations error = %v, want wrapped with 'conversations:'", err)
+ 	}
+ }
+ 

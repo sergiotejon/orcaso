@@ -223,6 +223,7 @@ lanzar suelto:
 ```bash
 ./bin/orcaso-project                              # crea las pestañas que falten
 ./bin/orcaso-project --focus                      # y deja el foco en la última
+./bin/orcaso-project --slack tui                  # slack-tui (extra opcional)
 ./bin/orcaso-project --slack web                  # Slack en el navegador de Orca
 ./bin/orcaso-project --slack none                 # sin pestaña de Slack
 ./bin/orcaso-project --web https://ejemplo.com    # abre además el navegador
@@ -248,6 +249,56 @@ En este orden, y se queda con el primero que resuelva:
 3. La cuenta gestionada que aparezca en `orca account list` (Claude o Codex).
 4. El primero instalado de `claude`, `codex`, `opencode`, `cursor-agent`,
    `aider`.
+
+### slack-tui: el otro cliente de terminal
+
+`nix/flake.nix` empaqueta también **slack-tui**, un cliente de terminal
+modal (vim-like). Es un **extra opcional**: no está en `devbox.json`, así que
+quien clone el repositorio no se lo encuentra a menos que lo pida.
+
+```bash
+./bin/slack-tui                       # lanzarlo suelto
+./bin/orcaso-project --slack tui      # montarlo como la pestaña de Slack
+```
+
+o, permanente, en `weechat/local.env`:
+
+```bash
+: "${ORCASO_SLACK:=tui}"
+```
+
+Va **parcheado**, y los parches están en `nix/patches/`:
+
+1. **`users.conversations` en vez de `conversations.list`.** El upstream recorre
+   el workspace entero al arrancar y luego descarta todo lo que no sea
+   `IsMember`. Medido en un Slack de empresa: Slack devuelve páginas de 28, 30,
+   6, 4, 3 canales —muy por debajo del `limit: 200` pedido— y a la séptima
+   petición responde `HTTP 429, Retry-After: 30`. El arranque tardaba **más de
+   doce minutos**. `users.conversations` devuelve solo tus conversaciones, y
+   baja a segundos. El navegador de canales sigue usando `conversations.list`,
+   que ahí es justo lo que se quiere.
+2. **`default_channel` en `prefs.json`.** El upstream abre en el primer canal
+   por orden alfabético. Este parche añade la preferencia:
+
+   ```json
+   { "default_channel": "equipo-privado" }
+   ```
+
+   Vive en `~/.config/slack-tui/prefs.json`, fuera del repositorio.
+
+Los parches son **solo para este repositorio**: no se han mandado al proyecto
+original.
+
+#### Qué no tiene
+
+- **Imágenes y GIFs**: no los pinta. No usa kitty, sixel ni chafa; los adjuntos
+  y enlaces se abren con `open`, o sea fuera de Orca. WeeChat aquí es mejor
+  (`Alt`+`i` los pinta en el buffer, `Alt`+`o` los manda a una pestaña de Orca).
+- **Avisos en tiempo real**: notifica por `osascript` en el Centro de
+  notificaciones, controlado con `"notify": "mentions" | "off"` en `prefs.json`,
+  pero **por sondeo**. El tiempo real necesita Socket Mode, que exige repartir
+  tokens de bot y por eso está desactivado.
+- **Caché**: no guarda nada entre arranques; cada inicio vuelve a pedir la lista.
 
 ### Slack en el navegador en vez de en WeeChat
 

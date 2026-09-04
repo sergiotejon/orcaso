@@ -6,8 +6,8 @@
 #   orcaso-project [--focus] [--slack terminal|web|none] [--web <url>] [--cli <cmd>]
 #
 #   --focus        deja el foco en la última pestaña creada
-#   --slack <modo> terminal (weeslack, por defecto), web (Slack en el navegador
-#                  de Orca) o none
+#   --slack <modo> terminal (weeslack, por defecto), tui (slack-tui parcheado),
+#                  web (Slack en el navegador de Orca) o none
 #   --web <url>    abre además una pestaña del navegador de Orca
 #   --cli <cmd>    fuerza el CLI de IA (si no, se detecta)
 #
@@ -161,11 +161,14 @@ case "$SLACK_MODE" in
       create_terminal "Slack" "$REPO_DIR/bin/weeslack"
     fi
     ;;
+  tui)
+    create_terminal "Slack" "$REPO_DIR/bin/slack-tui"
+    ;;
   web)
     open_web_tab "$SLACK_URL" "Slack"
     ;;
   none) ;;
-  *) warn "Modo de Slack desconocido: $SLACK_MODE (usa terminal, web o none)" ;;
+  *) warn "Modo de Slack desconocido: $SLACK_MODE (usa terminal, tui, web o none)" ;;
 esac
 
 [ -n "$WEB_URL" ] && open_web_tab "$WEB_URL" "$WEB_URL"

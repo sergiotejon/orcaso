@@ -1,0 +1,57 @@
+From 85233284a45ed987c2f5aea347ab3b39ca726d8f Mon Sep 17 00:00:00 2001
+From: orcaso <orcaso@localhost>
+Date: Fri, 4 Sep 2026 16:40:12 +0200
+Subject: [PATCH 2/2] prefs: add default_channel
+
+The startup conversation is whatever sorts first in the sidebar. This
+adds an optional default_channel preference, matched by name against
+channels and DMs, so a workspace opens where you actually work.
+---
+ internal/app/app.go       | 9 +++++++++
+ internal/config/config.go | 6 ++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/internal/app/app.go b/internal/app/app.go
+index 07a5064..00f3a50 100644
+--- a/internal/app/app.go
++++ b/internal/app/app.go
+@@ -408,6 +408,15 @@ func NewWith(src source.Source, prefs config.Prefs) Model {
+ 		case len(ws.DMs) > 0:
+ 			activeID = ws.DMs[0].ID
+ 		}
++		// prefs.default_channel wins when it names a conversation we have.
++		if want := strings.TrimPrefix(prefs.DefaultChannel, "#"); want != "" {
++			for _, c := range append(append([]data.Conversation{}, ws.Channels...), ws.DMs...) {
++				if c.Name == want {
++					activeID = c.ID
++					break
++				}
++			}
++		}
+ 	}
+ 
+ 	m := Model{
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 96b8964..8268bc4 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -21,6 +21,9 @@ type Prefs struct {
+ 	Density  string `json:"density"`
+ 	Status   string `json:"status"`
+ 	GroupDMs bool   `json:"group_dms"` // include group DMs (mpims) in the sidebar
++	// DefaultChannel is the conversation to open on start, by name and without
++	// the '#'. Empty keeps the old behaviour: the first channel in the sidebar.
++	DefaultChannel string `json:"default_channel,omitempty"`
+ 	// Notify is "mentions" (the default: desktop notifications for mentions and
+ 	// DMs, matching the terminal bell) or "off". A string rather than a bool so
+ 	// an existing prefs.json without the key keeps the default — merge only
+@@ -149,6 +152,9 @@ func merge(dst *Prefs, src Prefs) {
+ 	if src.Handle != "" {
+ 		dst.Handle = src.Handle
+ 	}
++	if src.DefaultChannel != "" {
++		dst.DefaultChannel = src.DefaultChannel
++	}
+ 	if src.Theme != "" {
+ 		dst.Theme = src.Theme
+ 	}

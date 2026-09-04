@@ -22,6 +22,32 @@
           };
         };
 
+        # Opcional: no está en devbox.json, así que quien clone el repo no se lo
+        # encuentra. Se usa a demanda con `nix run ./nix#slack-tui`, o se activa
+        # por máquina con ORCASO_SLACK=tui en weechat/local.env.
+        #
+        # Va parcheado: al arrancar, el upstream recorre conversations.list
+        # entero (todo el workspace) para quedarse solo con tus canales, lo que
+        # en un Slack de empresa son minutos de paginación y 429. Ver
+        # nix/patches/.
+        slack-tui = pkgs.buildGoModule {
+          pname = "slack-tui";
+          version = "0.6.1-orcaso";
+          src = pkgs.fetchFromGitHub {
+            owner = "kurenn";
+            repo = "slack-tui";
+            rev = "dd5b82492c5b42e0248f6918b4b080d9ad4190e0";
+            hash = "sha256-APhxsJq4Ot6JCHOKyOtOZ79NQECjlAjX/Vx1u1EvOI8=";
+          };
+          vendorHash = "sha256-TyJEJujiciHHAUbcHQIsG1vc7sPqlVL8lcBOZDniRvM=";
+          patches = [
+            ./patches/0001-source-list-conversations-with-users.conversations.patch
+            ./patches/0002-prefs-add-default_channel.patch
+          ];
+          ldflags = [ "-s" "-w" "-X" "main.version=0.6.1-orcaso" ];
+          meta.mainProgram = "slack-tui";
+        };
+
         default = weechat-slack;
       });
     };

@@ -133,7 +133,29 @@ configuración.
 
 Para saltárselo durante la instalación: `./install.sh --no-project`.
 
-## Si no te convence WeeChat: Slack web en una pestaña
+## Si no te convence WeeChat
+
+Hay dos alternativas montadas, y las tres conviven.
+
+### slack-tui (extra opcional)
+
+Un cliente de terminal modal, empaquetado en `nix/flake.nix` y **fuera de las
+dependencias por defecto**: solo lo tiene quien lo pide.
+
+```bash
+./bin/slack-tui                     # lanzarlo
+./bin/orcaso-project --slack tui    # como pestaña de Slack
+```
+
+Lleva dos parches locales (`nix/patches/`): uno cambia `conversations.list` por
+`users.conversations`, que baja el arranque de más de doce minutos a segundos en
+un workspace de empresa; el otro añade una preferencia `default_channel`.
+No están mandados al proyecto original.
+
+No pinta imágenes ni GIFs, y sus avisos van por sondeo. Detalle completo en
+[MANUAL.md](MANUAL.md).
+
+### Slack web en una pestaña
 
 El objetivo es no salir de Orca, y eso se cumple igual con el Slack de siempre
 dentro del navegador de Orca. No hace falta desinstalar nada:
@@ -222,6 +244,8 @@ weechat/settings.conf           la configuración de WeeChat, versionada
 weechat/default-channel.conf    el trigger del canal por defecto
 weechat/local.env.example       plantilla de los ajustes de cada máquina
 bin/orcaso-project              monta las pestañas del proyecto en Orca
+bin/slack-tui                   lanzador del extra opcional slack-tui
+nix/patches/                    parches locales de slack-tui
 bin/weeslack                    lanzador
 bin/slack-img                   imagen o GIF -> arte ANSI dentro de un buffer
 bin/slack-open                  URL -> pestaña del navegador de Orca
